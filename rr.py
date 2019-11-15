@@ -1,3 +1,10 @@
+"""
+Author: Nishitha 
+Collaborators: Pavan, Venkatesh
+Created: 2019
+
+Restaurant reviews sentiment analysis
+"""
 import pandas as pd
 import numpy  as np
 from sklearn.feature_extraction.text import CountVectorizer
@@ -107,3 +114,4 @@ print("\n")
 print("Accuracy is ",round(score1*100,2),"%")
 print("Precision is ",round(score2,2))
 print("Recall is ",round(score3,2))
+
