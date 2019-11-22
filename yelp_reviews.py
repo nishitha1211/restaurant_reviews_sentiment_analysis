@@ -7,9 +7,10 @@
 
 import requests
 import json
-from http import HTTPStatus
 
-# api_key="sVuxy8O1Mkxdd4JoS_iSI35i6DUZ4Gd5Q3jfHOSH1GmUT27jN699By2USJEB7SR9-ztib6ArB7MRWeVXqajl8-wDY3NollfbKpP8IA0vTqfPUHzBrfPqwatAWQ_XXXYx"
+from rr import start_build, predict
+from es import send_loc_to_es
+
 
 def get(url, params, headers):
     return requests.get(url, params=params, headers=headers)
@@ -41,7 +42,7 @@ def get_business_params(term="seafood", location="New York City"):
 
 def get_business_data():
     response = get(get_business_url(), get_business_params(), get_headers())
-    if response.status_code != HTTPStatus.OK:
+    if response.status_code != 200:
         return response.status_code, None
     data = json_data(response.text)
     return response.status_code, data
@@ -49,7 +50,7 @@ def get_business_data():
 
 def get_business_list():
     status, body = get_business_data()
-    if status != HTTPStatus.OK:
+    if status != 200:
         return None
     business_list = body.get('businesses')
     return business_list
@@ -69,14 +70,50 @@ def get_business_id_loc():
     return business_id, location
 
 
+def get_review_list(data):
+    reviews = []
+    ratings = []
+    for review in data.get('reviews'):
+        reviews.append(review.get('text'))
+        ratings.append(review.get('rating'))
+    return reviews, ratings
+
+
 def get_business_review_list():
+    reviews = {}
     id_list, location = get_business_id_loc()
     if id_list is None:
-        return None
+        return None, None
     for _id in id_list:
         response = get(get_review_url(_id), {}, headers=get_headers())
-        print(response.text)
+        data = json_data(response.text)
+        reviews[_id], _ = get_review_list(data)
+    return reviews, location
+
+
+def predict_reviews():
+    predicted = {}
+    reviews, location = get_business_review_list()
+    for key in reviews.keys():
+        predicted[key] = avg(predict(reviews[key]))
+    return predicted, location
+
+
+def avg(data):
+    count = 0
+    for i in data:
+        count += i
+    return count / (len(data) * 1.0)
+
+
+def data_mappings():
+    predicted, location = predict_reviews()
+    for key in predicted.keys():
+        if predicted[key] < 0.5:
+            continue
+        send_loc_to_es(location[key])
 
 
 if __name__ == "__main__":
-    get_business_review_list()
+    start_build()
+    data_mappings()

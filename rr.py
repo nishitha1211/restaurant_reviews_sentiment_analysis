@@ -22,118 +22,116 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn import linear_model
-from elasticsearch import Elasticsearch
+from es import send_tag_to_es
 
-dataset = pd.read_csv("Restaurant_Reviews.tsv", delimiter='\t', quoting =3)
-
-
-def elastic_search():
-    return Elasticsearch([{'host': 'localhost', 'port': 9200}])
-
-
-def send_to_es(words):
-    es = elastic_search()
-    if not es.indices.exists(index="project2"):
-        datatype = {
-            "mappings": {
-                "request-info": {
-                    "properties": {
-                        "word": {
-                            "type": "keyword"
-                        }
-                    }
-                }
-            }
-        }
-        es.indices.create(index="project2", body=datatype)
-    for i in words:
-        es.index(index="project2", doc_type="request-info", body={"word": str(i)})
-
-
-corpus = []
-for i in range(0, 1000):
-    review = re.sub('[^a-zA-Z]', ' ', dataset['Review'][i])
-
-    review = review.lower()
-    review = review.split()
-
-    ps = PorterStemmer()
-    review = [ps.stem(word) for word in review if not word in set(stopwords.words('english'))]
-    send_to_es(review)
-    review = ' '.join(review)
-    corpus.append(review)
-
-print(corpus)
-
-cv = CountVectorizer(max_features = 1500)
-X = cv.fit_transform(corpus).toarray()
-y = dataset.iloc[:, 1].values
-
-#print(X)
-#print(y)
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 42)
-
+cv = CountVectorizer(max_features=1500)
 classifier = MultinomialNB(alpha=0.1)
-classifier.fit(X_train, y_train)
+# classifier = linear_model.LogisticRegression(C=1.5)
 
-# Predicting the Test set results
-y_pred = classifier.predict(X_test)
 
-cm = confusion_matrix(y_test, y_pred)
-print ("Confusion Matrix:\n",cm)
+def get_corpus(dataset, size=1000):
+    corpus = []
+    for i in range(0, size):
+        review = re.sub('[^a-zA-Z]', ' ', dataset[i])
 
-# Accuracy, Precision and Recall
+        review = review.lower()
+        review = review.split()
 
-score1 = accuracy_score(y_test,y_pred)
-score2 = precision_score(y_test,y_pred)
-score3= recall_score(y_test,y_pred)
-print("\n")
-print("Accuracy is ",round(score1*100,2),"%")
-print("Precision is ",round(score2,2))
-print("Recall is ",round(score3,2))
+        ps = PorterStemmer()
+        review = [ps.stem(word) for word in review if not word in set(stopwords.words('english'))]
+        send_tag_to_es(review)
+        review = ' '.join(review)
+        corpus.append(review)
+    return corpus
+
+
+def get_vector():
+    return cv
+
+
+def get_model():
+    return classifier
+
+
+def fit_transform(corpus):
+    return get_vector().fit_transform(corpus).toarray()
+
+
+def set_model(X_train, y_train):
+    classifier.fit(X_train, y_train)
+
+
+def predict(data):
+    corp = get_corpus(data, len(data))
+    test = get_vector().transform(corp).toarray()
+    return get_model().predict(test)
+
+
+def start_build():
+    dataset = pd.read_csv("Restaurant_Reviews.tsv", delimiter='\t', quoting=3)
+    corpus = get_corpus(dataset['Review'], len(dataset))
+    X = fit_transform(corpus)
+    y = dataset.iloc[:, 1].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+    set_model(X_train, y_train)
+    # Predicting the Test set results
+    y_pred = get_model().predict(X_test)
+
+    cm = confusion_matrix(y_test, y_pred)
+    print("Confusion Matrix:\n", cm)
+
+    # Accuracy, Precision and Recall
+
+    score1 = accuracy_score(y_test, y_pred)
+    score2 = precision_score(y_test, y_pred)
+    score3 = recall_score(y_test, y_pred)
+    print("\n")
+    print("Accuracy is ", round(score1 * 100, 2), "%")
+    print("Precision is ", round(score2, 2))
+    print("Recall is ", round(score3, 2))
+
 
 #bernoulli
 
-classifier = BernoulliNB(alpha=0.8)
-classifier.fit(X_train, y_train)
-
-# Predicting the Test set results
-y_pred = classifier.predict(X_test)
-
-# Making the Confusion Matrix
-cm = confusion_matrix(y_test, y_pred)
-print ("Confusion Matrix:\n",cm)
-
-# Accuracy, Precision and Recall
-
-score1 = accuracy_score(y_test,y_pred)
-score2 = precision_score(y_test,y_pred)
-score3= recall_score(y_test,y_pred)
-print("\n")
-print("Accuracy is ",round(score1*100,2),"%")
-print("Precision is ",round(score2,2))
-print("Recall is ",round(score3,2))
-
-#logistic regression
-
-classifier = linear_model.LogisticRegression(C=1.5)
-classifier.fit(X_train, y_train)
-
-# Predicting the Test set results
-y_pred = classifier.predict(X_test)
-
-# Making the Confusion Matrix
-cm = confusion_matrix(y_test, y_pred)
-print ("Confusion Matrix:\n",cm)
-
-# Accuracy, Precision and Recall
-
-score1 = accuracy_score(y_test,y_pred)
-score2 = precision_score(y_test,y_pred)
-score3= recall_score(y_test,y_pred)
-print("\n")
-print("Accuracy is ",round(score1*100,2),"%")
-print("Precision is ",round(score2,2))
-print("Recall is ",round(score3,2))
+# classifier = BernoulliNB(alpha=0.8)
+# classifier.fit(X_train, y_train)
+#
+# # Predicting the Test set results
+# y_pred = classifier.predict(X_test)
+#
+# # Making the Confusion Matrix
+# cm = confusion_matrix(y_test, y_pred)
+# print ("Confusion Matrix:\n",cm)
+#
+# # Accuracy, Precision and Recall
+#
+# score1 = accuracy_score(y_test,y_pred)
+# score2 = precision_score(y_test,y_pred)
+# score3= recall_score(y_test,y_pred)
+# print("\n")
+# print("Accuracy is ",round(score1*100,2),"%")
+# print("Precision is ",round(score2,2))
+# print("Recall is ",round(score3,2))
+#
+# #logistic regression
+#
+# classifier = linear_model.LogisticRegression(C=1.5)
+# classifier.fit(X_train, y_train)
+#
+# # Predicting the Test set results
+# y_pred = classifier.predict(X_test)
+#
+# # Making the Confusion Matrix
+# cm = confusion_matrix(y_test, y_pred)
+# print ("Confusion Matrix:\n",cm)
+#
+# # Accuracy, Precision and Recall
+#
+# score1 = accuracy_score(y_test,y_pred)
+# score2 = precision_score(y_test,y_pred)
+# score3= recall_score(y_test,y_pred)
+# print("\n")
+# print("Accuracy is ",round(score1*100,2),"%")
+# print("Precision is ",round(score2,2))
+# print("Recall is ",round(score3,2))
 
