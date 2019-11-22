@@ -22,10 +22,32 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn import linear_model
+from elasticsearch import Elasticsearch
+
+dataset = pd.read_csv("Restaurant_Reviews.tsv", delimiter='\t', quoting =3)
 
 
+def elastic_search():
+    return Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
-dataset = pd.read_csv("C:/Users/nishi/OneDrive/Desktop/project/Restaurant_Reviews.tsv",delimiter = '\t', quoting = 3)
+
+def send_to_es(words):
+    es = elastic_search()
+    if not es.indices.exists(index="project2"):
+        datatype = {
+            "mappings": {
+                "request-info": {
+                    "properties": {
+                        "word": {
+                            "type": "keyword"
+                        }
+                    }
+                }
+            }
+        }
+        es.indices.create(index="project2", body=datatype)
+    for i in words:
+        es.index(index="project2", doc_type="request-info", body={"word": str(i)})
 
 
 corpus = []
@@ -37,7 +59,7 @@ for i in range(0, 1000):
 
     ps = PorterStemmer()
     review = [ps.stem(word) for word in review if not word in set(stopwords.words('english'))]
-
+    send_to_es(review)
     review = ' '.join(review)
     corpus.append(review)
 
