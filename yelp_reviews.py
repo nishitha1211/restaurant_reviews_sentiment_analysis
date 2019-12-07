@@ -28,6 +28,10 @@ def get_api_key():
     return open("key.txt", "r").read()
 
 
+def get_business_name_url(_id):
+    return "https://api.yelp.com/v3/businesses/{0}".format(_id)
+
+
 def get_business_url():
     return "https://api.yelp.com/v3/businesses/search"
 
@@ -48,6 +52,14 @@ def get_business_data():
     return response.status_code, data
 
 
+def get_business_name(_id):
+    response = get(get_business_name_url(_id), {}, get_headers())
+    if response.status_code != 200:
+        return response.status_code, None
+    data = json_data(response.text)
+    return response.status_code, data.get('name')
+
+
 def get_business_list():
     status, body = get_business_data()
     if status != 200:
@@ -58,16 +70,21 @@ def get_business_list():
 
 def get_business_id_loc():
     business_id = []
+    business_names = {}
     location = {}
     business_list = get_business_list()
     if business_list is None:
         return None, None
     for business in business_list:
         _id = business.get('id')
+        status, name = get_business_name(_id)
+        if status != 200 and name is not None:
+            continue
         business_id.append(_id)
+        business_names[_id] = name
         coordinates = business.get('coordinates')
         location[_id] = {'latitude': coordinates.get('latitude'), 'longitude': coordinates.get('longitude')}
-    return business_id, location
+    return business_id, location, business_names
 
 
 def get_review_list(data):
@@ -81,21 +98,25 @@ def get_review_list(data):
 
 def get_business_review_list():
     reviews = {}
-    id_list, location = get_business_id_loc()
+    id_list, location, names = get_business_id_loc()
     if id_list is None:
         return None, None
     for _id in id_list:
         response = get(get_review_url(_id), {}, headers=get_headers())
         data = json_data(response.text)
         reviews[_id], _ = get_review_list(data)
-    return reviews, location
+    return reviews, location, names
 
 
 def predict_reviews():
     predicted = {}
-    reviews, location = get_business_review_list()
+    reviews, location, names = get_business_review_list()
     for key in reviews.keys():
         predicted[key] = avg(predict(reviews[key]))
+        if predicted[key] >= 0.5:
+            print("{0} - {1}".format(names[key], "Good"))
+        else:
+            print("{0} - {1}".format(names[key], "Not so Good"))
     return predicted, location
 
 

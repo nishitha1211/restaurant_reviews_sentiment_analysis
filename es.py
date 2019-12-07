@@ -7,7 +7,7 @@ def elastic_search():
 
 def send_tag_to_es(words):
     es = elastic_search()
-    if not es.indices.exists(index="project2"):
+    if not es.indices.exists(index="tagcloud"):
         datatype = {
             "mappings": {
                 "request-info": {
@@ -19,14 +19,14 @@ def send_tag_to_es(words):
                 }
             }
         }
-        es.indices.create(index="project2", body=datatype)
+        es.indices.create(index="tagcloud", body=datatype)
     for i in words:
-        es.index(index="project2", doc_type="request-info", body={"word": str(i)})
+        es.index(index="tagcloud", doc_type="request-info", body={"word": str(i)})
 
 
 def send_loc_to_es(loc):
     es = elastic_search()
-    if not es.indices.exists(index="project3"):
+    if not es.indices.exists(index="map"):
         datatype = {
             "mappings": {
                 "request-info": {
@@ -38,6 +38,6 @@ def send_loc_to_es(loc):
                 }
             }
         }
-        es.indices.create(index="project3", body=datatype)
+        es.indices.create(index="map", body=datatype)
     for key in loc:
-        es.index(index="project3", doc_type="request-info", body={"location": {"lat": loc['latitude'], "lon": loc['longitude']}})
+        es.index(index="map", doc_type="request-info", body={"location": {"lat": loc['latitude'], "lon": loc['longitude']}})

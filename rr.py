@@ -24,8 +24,8 @@ from sklearn.metrics import recall_score
 from sklearn import linear_model
 from es import send_tag_to_es
 
-cv = CountVectorizer(max_features=1500)
-classifier = MultinomialNB(alpha=0.1)
+cv = CountVectorizer()
+classifier = MultinomialNB(alpha=0.2)
 # classifier = linear_model.LogisticRegression(C=1.5)
 
 
